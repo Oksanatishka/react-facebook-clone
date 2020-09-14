@@ -1,0 +1,178 @@
+Tech Used:
+    React + React Hooks
+    React Context API -> Redux pattern
+    Material UI
+    Flexbox
+    Firebase's Firestore realtime DB
+    Firebase Hosting
+    Firebase Google Authentication (Full Login)
+    React flip move
+    
+
+STEPS:
+1) Install App
+> npx create-react-app fb-clone     // Details: https://reactjs.org/docs/create-a-new-react-app.html
+> cd fb-clone
+> npm start
+
+2) Set up Firebase. 
+    - Firebase SDK snippet -> change from 'Automatic' to 'Config'
+    - create /src/firebase.js -> paste provided code
+
+3) Remove unnecessary default styles and functionality
+    - remove /src/logo.svg, /src/App.test.js, /src/setupTests.js files
+    - in App.js:
+        - remove <header> tag & its import
+        - rename className="App" to "app" & add <h1>Let's build Airbnb!</h1> inside div
+    - delete styles in App.css
+    - in index.css add *{margin:0}
+    
+4) Build components inside of Home component:
+    Header
+    App body
+        Sidebar
+            SidebarRow
+        Feed
+            StoryReel
+                Story
+            MessageSender   // state hook
+            Post
+
+        Widgets // iframe
+    Login
+    ------------------------------------------------------------------------------
+    * State Hook https://reactjs.org/docs/hooks-state.html
+        -> useState is a Hook that lets you add React state to function components
+
+    add Header component
+        - Header.js
+            - rsc
+            - import Header.css
+            - add className="header"
+            - parts: left, middle, right
+            Material UI: search
+                > npm install @material-ui/core
+                > npm install @material-ui/icons
+        - Header.css
+
+    ctr + p     // to search recent file in vs code editor.
+
+5) Login
+    React Context API
+
+    To build a real-time database:
+        > npm i firebase
+        In /src/firebase.js:
+            import firebase from 'firebase'
+            const firebaseConfig = {...}
+            // to connect react frontent to firebase backend
+            const firebaseApp = firebase.initializeApp(firebaseConfig);
+            const db = firebaseApp.firestore();
+        In Firebase Console -> Cloud Firestore -> Create database -> Start in test mode.
+    
+    To set up authentication:
+        In /src/firebase.js:
+            const auth = firebase.auth();
+            const provider = new firebase.auth.GoogleAuthProvider();
+            export { auth, provider };
+            export default db;
+        In Firebase Console -> Authentication -> 'Sign-in method' tab -> Google -> Enable -> add 'Project support email' -> Save
+
+    To Login:
+        In Login.js:
+            const signIn = () => {
+                auth.signInWithPopup(provider).then((result) => {
+                    console.log(result.user).catch((error) => alert(error.message));
+                });
+            };
+        Now we're going to introduce something called the React Context API(easier to implement than Redux):
+        // In App.js <div className="app">...</div> - data layer.
+        
+        Create StateProvider.js
+        Create reducer.js
+
+        In index.js:
+            - wrap <App /> component inside of the <StateProvider> component.
+            - import <StateProvider> component
+        
+        This is how we prepare the data layer. Now how do we use it? - Let's go back to Login.js.   
+            - instead of console.log -> dispatch
+            - we need to use hook useStateValue() - the hook that we built inside of the StateProvider
+                which allows us to pull information from the data layer so this gives us two things 
+                it gives us the state and the dispatch.
+                - import useStateValue hook & actionTypes
+
+        In App.js:
+            change const user = null; 
+            to const [{user}, dispatch] = useStateValue();
+
+    To pull the name and image:
+        in Header.js: 
+            - add 
+                import { useStateValue } from './StateProvider';
+                const [{ user }, dispatch] = useStateValue();
+            - change 
+                <Avatar src={user.photoURL} />
+                <h4>{user.displayName}</h4>
+        in Sidebar.js"
+            - add 
+                import { useStateValue } from './StateProvider';
+                const [{ user }, dispatch] = useStateValue();
+            - change    
+                <SidebarRow src={user.photoURL} title={user.displayName} />
+        in MessageSender.js 
+            - add 
+                import { useStateValue } from './StateProvider';
+                const [{ user }, dispatch] = useStateValue();
+            - change
+                <Avatar src={user.photoURL}/>
+                placeholder={`What's on your mind, ${user.displayName}?`}    
+
+        Q: How you can maintain the user logged in even if we refresh the page?
+        A: Right so when you're using the google authentication login you actually have to use the token 
+            to keep the persistence of the user but we don't cover that in this build.
+            because that's going to add to the build time and there's already quite a lot we need to do still
+            but if you're using the username and password it will by default keep persistence so 
+            if you're using the username and password authentication with firebase - it will by default do that for you.
+ 
+    To do the firebase instance (so this is where we actually connect the database to the build):
+        In Firebase Console -> Cloud Firestore -> Start collection 'posts' -> Document ID: Auto-ID, Field: profilePic, Value: https://avatars0.githubusercontent.com/u/11281854?s=460&u=2624345d87ed990594996507f6ed380a2871770a&v=4 -> Add Field -> Save.
+        In Feed.js (we were rendering out posts manually typed) to pull this in:
+            - add 
+                import db from './firebase'
+                const [posts, setPosts] = useState([]);
+                useEffect(() => {
+                    db.collection('posts')
+                        .orderBy('timestamp', 'desc')
+                        .onSnapshot((snapshot) => {
+                            setPosts(snapshot.docs.map((doc) => ({ id: doc.id, data: doc.data() })));
+                        });
+                }, []);
+            - replace <Post .../> with
+                {posts.map((post) => (
+                    <Post
+                        key={post.data.id}
+                        profilePic={post.data.profilePic}
+                        message={post.data.message}
+                        timestamp={post.data.timestamp}
+                        username={post.data.username}
+                        image={post.data.image}
+                    />
+                ))}
+        In Posts.js 
+            - change <p>Timestamp..</p> to
+                <p>{new Date(timestamp?.toDate()).toUTCString()}</p>
+
+    To push information into database:
+        In MessageSender.js
+            - add   
+                import db from './firebase';
+                import firebase from 'firebase';
+            - change handleSubmit:
+    To deploy:
+        > sudo npm i -g firebase-tools
+        > firebase login
+        > firebase init
+        > npm run build 
+        > firebase deploy
+
